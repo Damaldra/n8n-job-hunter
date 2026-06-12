@@ -1,0 +1,186 @@
+{
+  "name": "AI Automation Job Hunter",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "hours", "hoursInterval": 2 }] } },
+      "id": "ee32497c-3f92-4bca-abc4-639d2cc9229f",
+      "name": "Every 2 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [0, 112]
+    },
+    {
+      "parameters": {
+        "url": "<__PLACEHOLDER_VALUE__RSS-ссылка сохранённого поиска на Djinni (например https://djinni.co/jobs/?primary_keyword=...&format=rss)__>",
+        "options": {}
+      },
+      "id": "bf605b28-61ce-43dd-bfbf-ea4884c1a008",
+      "name": "Read Djinni Feed",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [224, 16]
+    },
+    {
+      "parameters": {},
+      "id": "f0a33188-7bc1-4231-b605-6f1b6976c760",
+      "name": "Merge Feeds",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [448, 112]
+    },
+    {
+      "parameters": {
+        "url": "<__PLACEHOLDER_VALUE__RSS-ссылка категории/поиска на jobs.dou.ua (например https://jobs.dou.ua/vacancies/feeds/?category=...&search=n8n)__>",
+        "options": {}
+      },
+      "id": "489a9c5f-3a6c-4710-9e3b-214f773f4e89",
+      "name": "Read DOU Feed",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [224, 208]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 1 },
+          "combinator": "or",
+          "conditions": [
+            { "leftValue": "={{ ($json.title + \" \" + ($json.contentSnippet ?? \"\") + \" \" + ($json.content ?? \"\")).toLowerCase() }}", "operator": { "type": "string", "operation": "contains" }, "rightValue": "n8n" },
+            { "leftValue": "={{ ($json.title + \" \" + ($json.contentSnippet ?? \"\") + \" \" + ($json.content ?? \"\")).toLowerCase() }}", "operator": { "type": "string", "operation": "contains" }, "rightValue": "automation" },
+            { "leftValue": "={{ ($json.title + \" \" + ($json.contentSnippet ?? \"\") + \" \" + ($json.content ?? \"\")).toLowerCase() }}", "operator": { "type": "string", "operation": "contains" }, "rightValue": "автоматиз" },
+            { "leftValue": "={{ ($json.title + \" \" + ($json.contentSnippet ?? \"\") + \" \" + ($json.content ?? \"\")).toLowerCase() }}", "operator": { "type": "string", "operation": "contains" }, "rightValue": "ai agent" },
+            { "leftValue": "={{ ($json.title + \" \" + ($json.contentSnippet ?? \"\") + \" \" + ($json.content ?? \"\")).toLowerCase() }}", "operator": { "type": "string", "operation": "contains" }, "rightValue": "make.com" },
+            { "leftValue": "={{ ($json.title + \" \" + ($json.contentSnippet ?? \"\") + \" \" + ($json.content ?? \"\")).toLowerCase() }}", "operator": { "type": "string", "operation": "contains" }, "rightValue": "zapier" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c6f04d09-e539-4c8c-a4ac-3b01faeef48e",
+      "name": "Keep Relevant Keywords",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [672, 112]
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": { "__rl": true, "mode": "name", "value": "seen_jobs" },
+        "filters": { "conditions": [{ "keyName": "link", "keyValue": "={{ $json.link }}" }] }
+      },
+      "id": "6e85cb00-543b-4180-992d-230a6bdb12da",
+      "name": "Find New Jobs",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [896, 112]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Вакансия для оценки:\nЗаголовок: {{ $json.title }}\nОписание: {{ $json.content }}\nСсылка: {{ $json.link }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Ты — ассистент по подбору вакансий для AI-автоматизатора. Профиль кандидата: автоматизация на n8n + вайбкодинг (Cursor / Claude Code), интеграции REST API и webhooks, LLM-агенты и RAG (OpenAI, Anthropic), JS/TS и Python. Оцени, насколько вакансия подходит кандидату, и верни строго JSON по заданной схеме. Поле score — целое 0-100. Если score < 50, relevant = false. reason — одно предложение, почему подходит или нет. draft — короткий персональный черновик отклика (3-5 предложений) на языке вакансии, подчёркивающий релевантный опыт кандидата."
+        }
+      },
+      "id": "4f447efe-b905-4501-b585-cc1ff68268ce",
+      "name": "Score & Draft Reply",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [1120, 112]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{ \"relevant\": true, \"score\": 85, \"reason\": \"Short reason why it fits or not\", \"draft\": \"Short personalised cover letter draft\" }"
+      },
+      "id": "5032ea7b-9de2-46da-8639-caeb07958951",
+      "name": "Job Match Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [1264, 336]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "f1", "name": "relevant", "value": "={{ $json.output.relevant }}", "type": "boolean" },
+            { "id": "f2", "name": "score", "value": "={{ $json.output.score }}", "type": "number" },
+            { "id": "f3", "name": "link", "value": "={{ $(\"Find New Jobs\").item.json.link }}", "type": "string" },
+            { "id": "f4", "name": "message", "value": "=🎯 Score {{ $json.output.score }}/100\n📌 {{ $(\"Find New Jobs\").item.json.title }}\n\n💡 {{ $json.output.reason }}\n\n📝 Черновик отклика:\n{{ $json.output.draft }}\n\n🔗 {{ $(\"Find New Jobs\").item.json.link }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a8c7a048-365c-420e-bb3e-73e9209e94d0",
+      "name": "Format Job",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1472, 112]
+    },
+    {
+      "parameters": {
+        "dataTableId": { "__rl": true, "mode": "name", "value": "seen_jobs" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": { "link": "={{ $(\"Format Job\").item.json.link }}" },
+          "schema": [{ "id": "link", "displayName": "link", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }]
+        },
+        "options": {}
+      },
+      "id": "6737ee64-c605-450c-be4e-8c4ea9a6d815",
+      "name": "Mark As Seen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1696, 112]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 1 },
+          "combinator": "and",
+          "conditions": [{ "leftValue": "={{ $(\"Format Job\").item.json.relevant }}", "operator": { "type": "boolean", "operation": "true", "singleValue": true }, "rightValue": "" }]
+        },
+        "options": {}
+      },
+      "id": "8c6ee3b5-49f1-4e70-a469-77354b8f27ec",
+      "name": "Is Relevant?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1920, 112]
+    },
+    {
+      "parameters": {
+        "chatId": "<__PLACEHOLDER_VALUE__Твой Telegram chat ID (узнать через @get_id_bot)__>",
+        "text": "={{ $(\"Format Job\").item.json.message }}",
+        "additionalFields": { "appendAttribution": false, "disable_web_page_preview": false }
+      },
+      "id": "e153b801-9037-4dc7-b6b0-aa6b588734cd",
+      "name": "Send To Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2144, 112]
+    },
+    {
+      "parameters": { "model": { "__rl": true, "mode": "list", "value": "gpt-5-mini" }, "builtInTools": {}, "options": {} },
+      "id": "1c6faf8f-9340-4b4f-a6ae-36b5f4c55572",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [1120, 336]
+    }
+  ],
+  "connections": {
+    "Every 2 Hours": { "main": [[{ "node": "Read Djinni Feed", "type": "main", "index": 0 }, { "node": "Read DOU Feed", "type": "main", "index": 0 }]] },
+    "Read Djinni Feed": { "main": [[{ "node": "Merge Feeds", "type": "main", "index": 0 }]] },
+    "Read DOU Feed": { "main": [[{ "node": "Merge Feeds", "type": "main", "index": 1 }]] },
+    "Merge Feeds": { "main": [[{ "node": "Keep Relevant Keywords", "type": "main", "index": 0 }]] },
+    "Keep Relevant Keywords": { "main": [[{ "node": "Find New Jobs", "type": "main", "index": 0 }]] },
+    "Find New Jobs": { "main": [[{ "node": "Score & Draft Reply", "type": "main", "index": 0 }]] },
+    "Score & Draft Reply": { "main": [[{ "node": "Format Job", "type": "main", "index": 0 }]] },
+    "Job Match Schema": { "ai_outputParser": [[{ "node": "Score & Draft Reply", "type": "ai_outputParser", "index": 0 }]] },
+    "Format Job": { "main": [[{ "node": "Mark As Seen", "type": "main", "index": 0 }]] },
+    "Mark As Seen": { "main": [[{ "node": "Is Relevant?", "type": "main", "index": 0 }]] },
+    "Is Relevant?": { "main": [[{ "node": "Send To Telegram", "type": "main", "index": 0 }]] },
+    "OpenAI Chat Model": { "ai_languageModel": [[{ "node": "Score & Draft Reply", "type": "ai_languageModel", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
