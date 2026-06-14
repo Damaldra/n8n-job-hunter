@@ -18,10 +18,11 @@
       "name": "Read Djinni Feed",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
-      "position": [224, 16]
+      "position": [224, 16],
+      "onError": "continueRegularOutput"
     },
     {
-      "parameters": {},
+      "parameters": { "mode": "append", "numberInputs": 2 },
       "id": "f0a33188-7bc1-4231-b605-6f1b6976c760",
       "name": "Merge Feeds",
       "type": "n8n-nodes-base.merge",
@@ -37,7 +38,8 @@
       "name": "Read DOU Feed",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
-      "position": [224, 208]
+      "position": [224, 208],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
